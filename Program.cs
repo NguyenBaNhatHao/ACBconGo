@@ -4,17 +4,21 @@ using System.Text;
 using ACBconGo.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Reflection;
+using log4net;
+using log4net.Config;
 using System.Data.SqlClient;
 
 DotNetEnv.Env.Load();
 HttpClient client = new HttpClient();
+ILog _log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 USDTTransactions uSDTTransactions = new USDTTransactions();
 var server = Environment.GetEnvironmentVariable("server");
 var Database = Environment.GetEnvironmentVariable("Database");
 var UserId = Environment.GetEnvironmentVariable("UserId");
 var password = Environment.GetEnvironmentVariable("password");
-
-var connectionString="Data Source="+server+";Initial Catalog="+Database+";User Id="+UserId+";Password="+password+";Connection Timeout=30";
+var port = Environment.GetEnvironmentVariable("port");
+var connectionString="Server="+server+";Database="+Database+";User Id="+UserId+";Password="+password+";Connection Timeout=30";
 var ApiKey = Environment.GetEnvironmentVariable("apiKey");
 var walletId = Environment.GetEnvironmentVariable("walletId");
 var transactionsID = String.Empty;
@@ -22,16 +26,18 @@ client.DefaultRequestHeaders.Accept.Clear();
 client.DefaultRequestHeaders.Accept.Add(
     new MediaTypeWithQualityHeaderValue("application/json"));
 client.DefaultRequestHeaders.Add("X-API-Key",ApiKey);
-await GetAccessTransaction(client,walletId,connectionString,uSDTTransactions);
+var logRepository = LogManager.GetRepository(Assembly.GetEntryAssembly());
+XmlConfigurator.Configure(logRepository, new FileInfo("./log.config"));
+await GetAccessTransaction(client,walletId,connectionString,_log,uSDTTransactions);
 
-static async Task GetAccessTransaction(HttpClient client,string? walletId,string? connectionString,USDTTransactions uSDTTransactions){
-    HttpResponseMessage httpResponse = client.GetAsync("https://rest.cryptoapis.io/wallet-as-a-service/wallets/"+walletId+"/tron/nile/transactions?context=yourExampleString&limit=50&offset=0").GetAwaiter().GetResult();
+static async Task GetAccessTransaction(HttpClient client,string? walletId,string? connectionString,ILog _log,USDTTransactions uSDTTransactions){
+    
+    HttpResponseMessage httpResponse = client.GetAsync("https://rest.cryptoapis.io/wallet-as-a-service/wallets/"+walletId+"/tron/mainnet/transactions?context=yourExampleString&limit=50&offset=0").GetAwaiter().GetResult();
     httpResponse.EnsureSuccessStatusCode(); 
     var responseString = await httpResponse.Content.ReadAsStringAsync();
     JObject jObject = JObject.Parse(responseString);
     var direction = jObject["data"]["items"];
     foreach(var item in direction){
-        Console.WriteLine(item);
         if(item["direction"].Value<string>().Equals("incoming") && item["fungibleTokens"].HasValues == true){
             uSDTTransactions.Address = item["fungibleTokens"][0]["recipient"].Value<string>();
             uSDTTransactions.Account = uSDTTransactions.Address;
@@ -44,6 +50,10 @@ static async Task GetAccessTransaction(HttpClient client,string? walletId,string
             Console.WriteLine("Amount: "+uSDTTransactions.Amount);
             Console.WriteLine("TransactionHash: "+uSDTTransactions.TransactionHash);
             Console.WriteLine();
+            _log.Info("Address: "+uSDTTransactions.Address);
+            _log.Info("Account: "+uSDTTransactions.Account);
+            _log.Info("Amount: "+uSDTTransactions.Amount);
+            _log.Info("TransactionHash: "+uSDTTransactions.TransactionHash);
 
             var _pConfirmations = 10;
             var _pStatus = 0;
@@ -91,7 +101,7 @@ static async Task GetAccessTransaction(HttpClient client,string? walletId,string
     }
 }
 static async Task<string> GetHashTransaction(HttpClient client, USDTTransactions uSDTTransactions){
-    HttpResponseMessage httpResponse = client.GetAsync("https://rest.cryptoapis.io/wallet-as-a-service/wallets/tron/nile/transactions/"+uSDTTransactions.TransactionId).GetAwaiter().GetResult();
+    HttpResponseMessage httpResponse = client.GetAsync("https://rest.cryptoapis.io/wallet-as-a-service/wallets/tron/mainnet/transactions/"+uSDTTransactions.TransactionId).GetAwaiter().GetResult();
     httpResponse.EnsureSuccessStatusCode(); 
     var responseString = await httpResponse.Content.ReadAsStringAsync();
     JObject jObject = JObject.Parse(responseString);
