@@ -31,74 +31,83 @@ XmlConfigurator.Configure(logRepository, new FileInfo("./log.config"));
 await GetAccessTransaction(client,walletId,connectionString,_log,uSDTTransactions);
 
 static async Task GetAccessTransaction(HttpClient client,string? walletId,string? connectionString,ILog _log,USDTTransactions uSDTTransactions){
-    
-    HttpResponseMessage httpResponse = client.GetAsync("https://rest.cryptoapis.io/wallet-as-a-service/wallets/"+walletId+"/tron/mainnet/transactions?context=yourExampleString&limit=50&offset=0").GetAwaiter().GetResult();
-    httpResponse.EnsureSuccessStatusCode(); 
-    var responseString = await httpResponse.Content.ReadAsStringAsync();
-    JObject jObject = JObject.Parse(responseString);
-    var direction = jObject["data"]["items"];
-    foreach(var item in direction){
-        if(item["direction"].Value<string>().Equals("incoming") && item["fungibleTokens"].HasValues == true){
-            uSDTTransactions.Address = item["fungibleTokens"][0]["recipient"].Value<string>();
-            uSDTTransactions.Account = uSDTTransactions.Address;
-            uSDTTransactions.Amount = item["fungibleTokens"][0]["amount"].Value<double>().ToString();
-            uSDTTransactions.TransactionId = item["transactionId"].Value<string>();
-            var TransactionHash = await GetHashTransaction(client,uSDTTransactions);
-            uSDTTransactions.TransactionHash = TransactionHash;
-            Console.WriteLine("Address: "+uSDTTransactions.Address);
-            Console.WriteLine("Account: "+uSDTTransactions.Account);
-            Console.WriteLine("Amount: "+uSDTTransactions.Amount);
-            Console.WriteLine("TransactionHash: "+uSDTTransactions.TransactionHash);
-            Console.WriteLine();
-            _log.Info("Address: "+uSDTTransactions.Address);
-            _log.Info("Account: "+uSDTTransactions.Account);
-            _log.Info("Amount: "+uSDTTransactions.Amount);
-            _log.Info("TransactionHash: "+uSDTTransactions.TransactionHash);
+    try{
+        HttpResponseMessage httpResponse = client.GetAsync("https://rest.cryptoapis.io/wallet-as-a-service/wallets/"+walletId+"/tron/mainnet/transactions?context=yourExampleString&limit=50&offset=0").GetAwaiter().GetResult();
+        httpResponse.EnsureSuccessStatusCode(); 
+        var responseString = await httpResponse.Content.ReadAsStringAsync();
+        JObject jObject = JObject.Parse(responseString);
+        var direction = jObject["data"]["items"];
+        foreach(var item in direction){
+            Console.WriteLine(item);
+            if(item["direction"].Value<string>().Equals("incoming") && item["fungibleTokens"].HasValues == true){
+                uSDTTransactions.Address = item["fungibleTokens"][0]["recipient"].Value<string>();
+                uSDTTransactions.Account = uSDTTransactions.Address;
+                uSDTTransactions.Amount = item["fungibleTokens"][0]["amount"].Value<double>().ToString();
+                uSDTTransactions.TransactionId = item["transactionId"].Value<string>();
+                var TransactionHash = await GetHashTransaction(client,uSDTTransactions);
+                uSDTTransactions.TransactionHash = TransactionHash;
+                Console.WriteLine("Address: "+uSDTTransactions.Address);
+                Console.WriteLine("Account: "+uSDTTransactions.Account);
+                Console.WriteLine("Amount: "+uSDTTransactions.Amount);
+                Console.WriteLine("TransactionHash: "+uSDTTransactions.TransactionHash);
+                Console.WriteLine();
+                _log.Info("Address: "+uSDTTransactions.Address);
+                _log.Info("Account: "+uSDTTransactions.Account);
+                _log.Info("Amount: "+uSDTTransactions.Amount);
+                _log.Info("TransactionHash: "+uSDTTransactions.TransactionHash);
 
-            var _pConfirmations = 10;
-            var _pStatus = 0;
-            int _pResultMessageID = 1;
-            string _pResultMessageCode = "BTCTRANSACTIONS_EXISTED";
-            var pAddress = new SqlParameter("@pAddress", uSDTTransactions.Address);
-            var pAccount = new SqlParameter("@pAccount", uSDTTransactions.Account);
-            var pTransactionHash = new SqlParameter("@pTransactionHash", uSDTTransactions.TransactionHash);
-            var pAmount = new SqlParameter("@pAmount", uSDTTransactions.Amount);
-            var pConfirmations = new SqlParameter("@pConfirmations",_pConfirmations);
-            var pStatus = new SqlParameter("@pStatus",_pStatus);
-            var pResultMessageID = new SqlParameter("@pResultMessageID", _pResultMessageID);
-            var pResultMessageCode = new SqlParameter("@pResultMessageCode", _pResultMessageCode);
+                var _pConfirmations = 10;
+                var _pStatus = 0;
+                int _pResultMessageID = 1;
+                string _pResultMessageCode = "BTCTRANSACTIONS_EXISTED";
+                var pAddress = new SqlParameter("@pAddress", uSDTTransactions.Address);
+                var pAccount = new SqlParameter("@pAccount", uSDTTransactions.Account);
+                var pTransactionHash = new SqlParameter("@pTransactionHash", uSDTTransactions.TransactionHash);
+                var pAmount = new SqlParameter("@pAmount", uSDTTransactions.Amount);
+                var pConfirmations = new SqlParameter("@pConfirmations",_pConfirmations);
+                var pStatus = new SqlParameter("@pStatus",_pStatus);
+                var pResultMessageID = new SqlParameter("@pResultMessageID", _pResultMessageID);
+                var pResultMessageCode = new SqlParameter("@pResultMessageCode", _pResultMessageCode);
 
-            var pResultMessageID_exc = new SqlParameter("@pResultMessageID", _pResultMessageID);
-            var pResultMessageCode_exc = new SqlParameter("@pResultMessageCode", _pResultMessageCode);
+                var pResultMessageID_exc = new SqlParameter("@pResultMessageID", _pResultMessageID);
+                var pResultMessageCode_exc = new SqlParameter("@pResultMessageCode", _pResultMessageCode);
 
-            using (var conn = new SqlConnection(connectionString))
-            using (var command = new SqlCommand("[app].[usp_USDTTransactions_Insert]", conn) { 
-                                    CommandType = System.Data.CommandType.StoredProcedure }) {
-                                    command.Parameters.Add(pAddress);
-                                    command.Parameters.Add(pAccount);
-                                    command.Parameters.Add(pTransactionHash);
-                                    command.Parameters.Add(pAmount);
-                                    command.Parameters.Add(pConfirmations);
-                                    command.Parameters.Add(pStatus);
-                                    command.Parameters.Add(pResultMessageID);
-                                    command.Parameters.Add(pResultMessageCode);
-            conn.Open();
-            command.ExecuteNonQuery();
-            conn.Close();
+                using (var conn = new SqlConnection(connectionString))
+                using (var command = new SqlCommand("[app].[usp_USDTTransactions_Insert]", conn) { 
+                                        CommandType = System.Data.CommandType.StoredProcedure }) {
+                                        command.Parameters.Add(pAddress);
+                                        command.Parameters.Add(pAccount);
+                                        command.Parameters.Add(pTransactionHash);
+                                        command.Parameters.Add(pAmount);
+                                        command.Parameters.Add(pConfirmations);
+                                        command.Parameters.Add(pStatus);
+                                        command.Parameters.Add(pResultMessageID);
+                                        command.Parameters.Add(pResultMessageCode);
+                conn.Open();
+                command.ExecuteNonQuery();
+                conn.Close();
+                
+                }
+                using (var conn = new SqlConnection(connectionString))
+                using (var command = new SqlCommand("[app].[usp_USDTTransactions_Execute]", conn) { 
+                                        CommandType = System.Data.CommandType.StoredProcedure }) {
+                                        command.Parameters.Add(pResultMessageID_exc);
+                                        command.Parameters.Add(pResultMessageCode_exc);
+                conn.Open();
+                command.ExecuteNonQuery();
+                conn.Close();
+                
+                }
+
             }
-            using (var conn = new SqlConnection(connectionString))
-            using (var command = new SqlCommand("[app].[usp_USDTTransactions_Execute]", conn) { 
-                                    CommandType = System.Data.CommandType.StoredProcedure }) {
-                                    command.Parameters.Add(pResultMessageID_exc);
-                                    command.Parameters.Add(pResultMessageCode_exc);
-            conn.Open();
-            command.ExecuteNonQuery();
-            conn.Close();
-            }
-
+            
         }
         
+    }catch(Exception ex){
+        Console.WriteLine(ex.Message);
+        _log.Info(ex.Message);
     }
+    
 }
 static async Task<string> GetHashTransaction(HttpClient client, USDTTransactions uSDTTransactions){
     HttpResponseMessage httpResponse = client.GetAsync("https://rest.cryptoapis.io/wallet-as-a-service/wallets/tron/mainnet/transactions/"+uSDTTransactions.TransactionId).GetAwaiter().GetResult();
@@ -109,5 +118,3 @@ static async Task<string> GetHashTransaction(HttpClient client, USDTTransactions
     var TransactionHash = direction["transactionHash"].Value<string>();
     return TransactionHash;
 }
-
- 
